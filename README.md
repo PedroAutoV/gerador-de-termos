@@ -8,6 +8,13 @@ Gerador de termos em um único arquivo HTML. Funciona no navegador, sem instala�
 - **Termo de Renúncia** (associado)
 - **Termo de Responsabilidade**
 
+## Regras de preenchimento
+
+- **Comprovante de residência**: preenche dados de endereço.
+- **CRLV**: preenche dados do veículo.
+- **CNH**: preenche dados da pessoa.
+- **Termo Word**: removido da interface; o gerador agora considera apenas os três documentos de origem acima.
+
 ## Como usar
 
 1. Abra o link do GitHub Pages: **https://pedroautov.github.io/gerador-de-termos/**
@@ -33,7 +40,6 @@ Na parte superior da página, anexe cada documento na categoria correspondente (
 | Comprovante de residência | PDF ou imagem | endereço, bairro, número e cidade, quando identificados |
 | CRLV | PDF ou imagem | placa, chassi, marca/modelo, ano e cor |
 | CNH | PDF ou imagem | nome e CPF |
-| Documento Word | `.docx` | Termo de Entrega, Renúncia ou Responsabilidade já preenchido |
 
 ### Exemplo de uso
 

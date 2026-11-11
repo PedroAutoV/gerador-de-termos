@@ -376,12 +376,6 @@
                 <span class="dropzone-sub">Preenche nome e CPF</span>
                 <input type="file" accept=".pdf,.png,.jpg,.jpeg,.webp" multiple hidden>
             </div>
-            <div class="dropzone" data-category="termo" role="button" tabindex="0" aria-label="Anexar termo Word preenchido">
-                <span class="dropzone-icon">📝</span>
-                <span class="dropzone-title">Termo Word</span>
-                <span class="dropzone-sub">Importa termo preenchido</span>
-                <input type="file" accept=".docx" multiple hidden>
-            </div>
         </div>
         <div class="drop-status" id="dropStatus" role="status"></div>
 
@@ -858,7 +852,10 @@
         const blocoV = blocoVeiculo(texto);
         m = texto.match(/\bCOR\s*:\s*([^\n;]+)/i);
         if (m) {
-            dados.cor = m[1].replace(/\s+de propriedade.*$/i, '').trim();
+            dados.cor = m[1]
+                .replace(/\s+de propriedade.*$/i, '')
+                .replace(/[\s,;]+$/g, '')
+                .trim();
         } else {
             m = texto.match(/[-–]\s*([A-Za-zÀ-ú]+)\s*$/m) ||
                 (blocoV ? blocoV.match(/[-–]\s*([A-Za-zÀ-ú]+)/) : null);
@@ -885,16 +882,18 @@
         if (m) dados.cpf = m[0];
 
         /* Endereço */
-        m = texto.match(/domiciliad[oa][^\n]*?(?:endere[çc]o\s*:\s*|;\s*)([^\n;]+)/i);
-        if (m) dados.endereco = m[1].trim();
+        m = texto.match(/domiciliad[oa]\s+(?:em|no endereço)\s*[:;]?\s*([A-ZÀ-Ú0-9][^\n;]{2,120}?)(?=\s*;\s*(?:BAIRRO|Bairro|N[º°]|N[°º.]|CEP|CIDADE|MUNIC[ÍI]PIO)|\s*\.\s*$|$)/i);
+        if (m) {
+            dados.endereco = m[1].replace(/\s*[-–/]\s*[A-Z]{2}\s*$/, '').trim();
+        }
 
         /* Bairro e número */
-        m = texto.match(/BAIRRO\s*:\s*([^\n;]+)/i);
+        m = texto.match(/(?:BAIRRO|Bairro)\s*:\s*([^;]{1,120})(?:\s*;\s*(?:N[º°.]?|n[º°.]?)\s*(\d+[A-Z]?))?/i);
         if (m) {
-            let b = m[1].trim();
-            const n = b.match(/\bn[°º.]?\s*(\d+)/i);
-            if (n) dados.numero = n[1];
-            b = b.replace(/\s*n[°º.]?\s*\d+.*$/i, '').trim();
+            let b = m[1].trim().replace(/[\s,;]+$/g, '').trim();
+            const numeroExtraido = m[2] || (b.match(/\bn[°º.]?\s*(\d+[A-Z]?)/i) || [null, ''])[1];
+            if (numeroExtraido) dados.numero = String(numeroExtraido).trim();
+            b = b.replace(/\s*n[°º.]?\s*\d+[A-Z]?.*$/i, '').trim();
             b = b.replace(/\s+[A-Za-zÀ-ú]+\s*[-–]\s*[A-Za-z]{2}\s*$/, '').trim();
             if (b) dados.bairro = b;
         }
@@ -1246,15 +1245,13 @@
     const CAMPOS_CATEGORIA = {
         endereco: ['endereco', 'bairro', 'numero', 'cidade'],
         veiculo: ['veiculo', 'ano', 'placa', 'cor', 'chassi'],
-        pessoa: ['nome', 'cpf'],
-        termo: ['nome', 'cpf', 'endereco', 'bairro', 'numero', 'cidade', 'veiculo', 'ano', 'placa', 'cor', 'chassi', 'data', 'retirada', 'devolucao']
+        pessoa: ['nome', 'cpf']
     };
 
     const ROTULOS_CATEGORIA = {
         endereco: 'comprovante de residência',
         veiculo: 'CRLV',
-        pessoa: 'CNH',
-        termo: 'termo Word'
+        pessoa: 'CNH'
     };
 
     function filtrarDadosCategoria(dados, categoria) {
@@ -1345,19 +1342,66 @@
         m = texto.match(/\d{3}\.\d{3}\.\d{3}-\d{2}/) || texto.match(/\b\d{11}\b/);
         if (m) dados.cpf = m[0];
 
-        const indiceNome = linhas.findIndex(function (l) { return /NOME\s+E\s+SOBRENOME/i.test(l); });
+        function ehNomeValido(valor) {
+            const nome = String(valor || '').replace(/\s+/g, ' ').trim();
+            if (!nome || nome.split(' ').length < 2 || nome.split(' ').length > 8) return false;
+            if (/\b(?:NAN|ASSINADO|DIGITAL|SENATRAN|NOME|SOBRENOME|HABILITA|NACIONAL|REGISTRO|CPF|CATEGORIA|NASCIMENTO|FILIA|IDENTIDADE|SEXO|ESTADO|MUNICIPIO|VALIDADE|EMISSAO|ORGAO|REPÚBLICA|FEDERATIVA|BRASIL|GOVERNO|MINISTERIO|MINISTÉRIO|TRANSPORTES|PREFEITURA|CIDADANIA|PESSOA|JURIDICA)\b/i.test(nome)) return false;
+            if (/\d/.test(nome)) return false;
+            if (!/^[A-ZÀ-ÚÁÉÍÓÚÃÕÂÊÔÇ\s.'-]+$/i.test(nome)) return false;
+            return true;
+        }
 
-        if (indiceNome !== -1) {
-            for (let i = indiceNome + 1; i <= Math.min(linhas.length - 1, indiceNome + 4); i++) {
-                const achado = linhas[i].match(/^[\s\[|]*([A-ZÀ-Ú][A-ZÀ-Ú .'\-]{5,})[\s\[|]*$/);
-                if (!achado) continue;
+        function limparCandidatoNome(valor) {
+            return String(valor || '')
+                .replace(/^[\s|:.,;-]+/, '')
+                .replace(/\s+(?:\d+\s*[ªº°]?\s*)?HABILITA[ÇC][ÃA]O\b[\s\S]*$/i, '')
+                .replace(/\s+(?:ASSINADO|ASSINATURA|DIGITAL|CPF|DOC(?:UMENTO)?|IDENTIDADE|DATA\s+DE\s+NASCIMENTO|FILIA[ÇC][ÃA]O)\b[\s\S]*$/i, '')
+                .replace(/[\s|:.,;-]+$/g, '')
+                .replace(/\s+/g, ' ')
+                .trim();
+        }
 
-                const nome = achado[1].replace(/\s+/g, ' ').trim();
-                if (nome.split(' ').length < 2) continue;
-                if (/HABILITA|NACIONAL|REGISTRO|CPF|CATEGORIA|NASCIMENTO|FILIA/i.test(nome)) continue;
+        const rotuloNome = /(?:^|\s)NOME(?:\s+E\s+SOBRENOME|\s+COMPLETO)?\s*[:\-]?\s*/ig;
+        let encontrouNome = false;
+        for (let i = 0; i < linhas.length; i++) {
+            rotuloNome.lastIndex = 0;
+            let rotulo;
+            while ((rotulo = rotuloNome.exec(linhas[i])) !== null) {
+                const inicioValor = rotulo.index + rotulo[0].length;
+                const candidatoNaLinha = limparCandidatoNome(linhas[i].slice(inicioValor));
+                if (ehNomeValido(candidatoNaLinha)) {
+                    dados.nome = candidatoNaLinha;
+                    encontrouNome = true;
+                    break;
+                }
 
-                dados.nome = nome;
-                break;
+                for (let j = i + 1; j <= Math.min(linhas.length - 1, i + 3); j++) {
+                    const proxima = linhas[j];
+                    if (/\b(?:CPF|DOC(?:UMENTO)?|IDENTIDADE|NASCIMENTO|VALIDADE|CATEGORIA|ASSINADO|ASSINATURA|DIGITAL)\b/i.test(proxima)) break;
+
+                    const candidatoNaProximaLinha = limparCandidatoNome(proxima);
+                    if (ehNomeValido(candidatoNaProximaLinha)) {
+                        dados.nome = candidatoNaProximaLinha;
+                        encontrouNome = true;
+                        break;
+                    }
+                }
+
+                if (encontrouNome) break;
+            }
+            if (encontrouNome) break;
+        }
+
+        if (!dados.nome) {
+            for (let i = 0; i < linhas.length; i++) {
+                const linhaMrz = linhas[i].replace(/[‹«]/g, '<').replace(/\s+/g, '');
+                if (linhaMrz.indexOf('<<') === -1 || !/^[A-ZÀ-Ú]+(?:<+[A-ZÀ-Ú]+){1,}<*$/i.test(linhaMrz)) continue;
+
+                const nomeMrz = linhaMrz.replace(/<+/g, ' ').trim();
+                if (ehNomeValido(nomeMrz)) {
+                    dados.nome = nomeMrz;
+                    break;
+                }
             }
         }
 
@@ -1477,6 +1521,22 @@
 
     /* ---------- Estado dos formulários ---------- */
 
+    function valorValidoParaCampo(chave, valor) {
+        const texto = String(valor || '').trim();
+        if (!texto) return false;
+
+        if (chave === 'nome') {
+            const nome = texto.replace(/\s+/g, ' ');
+            if (nome.split(' ').length < 2 || nome.split(' ').length > 8) return false;
+            if (/\b(?:NAN|ASSINADO|ASSINATURA|DIGITAL|SENATRAN|NOME|SOBRENOME|REPÚBLICA|FEDERATIVA|BRASIL|GOVERNO|MINISTERIO|MINISTÉRIO|TRANSPORTES|PREFEITURA|ESTADO|CIDADANIA)\b/i.test(nome)) return false;
+            if (/\d/.test(nome)) return false;
+            if (!/^[A-ZÀ-ÚÁÉÍÓÚÃÕÂÊÔÇ\s.'-]+$/i.test(nome)) return false;
+            return true;
+        }
+
+        return true;
+    }
+
     function coletar() {
         const state = {};
 
@@ -1516,7 +1576,8 @@
 
                 Object.keys(saved[tipo]).forEach(function (key) {
                     const el = panel.querySelector('[data-key="' + key + '"]');
-                    if (el && saved[tipo][key]) el.value = saved[tipo][key];
+                    const valor = saved[tipo][key];
+                    if (el && valor && valorValidoParaCampo(key, valor)) el.value = valor;
                 });
             });
         }
