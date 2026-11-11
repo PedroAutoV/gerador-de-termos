@@ -10,7 +10,7 @@ Gerador de termos em um único arquivo HTML. Funciona no navegador, sem instala�
 
 ## Regras de preenchimento
 
-- **Comprovante de residência**: preenche dados de endereço.
+- **Endereço**: preenchido manualmente; o comprovante de residência não é importado.
 - **CRLV**: preenche dados do veículo.
 - **CNH**: preenche dados da pessoa.
 - **Termo Word**: removido da interface; o gerador agora considera apenas os três documentos de origem acima.
@@ -28,7 +28,7 @@ Gerador de termos em um único arquivo HTML. Funciona no navegador, sem instala�
 Na parte superior da página, anexe cada documento na categoria correspondente (ou arraste os arquivos para a área correta). O gerador:
 
 - lê tudo direto no navegador;
-- usa o **comprovante de residência** para endereço, bairro, número e cidade;
+- deixa endereço, bairro, número e cidade para preenchimento manual;
 - usa o **CRLV** para os dados do veículo;
 - usa a **CNH** para nome e CPF;
 - destaca em verde os campos preenchidos para você conferir antes de gerar.
@@ -37,14 +37,13 @@ Na parte superior da página, anexe cada documento na categoria correspondente (
 
 | Categoria | Arquivo | O que é lido |
 |---|---|---|
-| Comprovante de residência | PDF ou imagem | endereço, bairro, número e cidade, quando identificados |
 | CRLV | PDF ou imagem | placa, chassi, marca/modelo, ano e cor |
 | CNH | PDF ou imagem | nome e CPF |
 
 ### Exemplo de uso
 
 1. Anexe a **CNH** na categoria CNH e o **CRLV** na categoria CRLV.
-2. Anexe o **comprovante de residência** na categoria correspondente para preencher os dados de endereço.
+2. Preencha manualmente os dados de endereço na aba do termo.
 3. Confira os campos preenchidos, complete o que faltar e gere o termo.
 
 Observações:
