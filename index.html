@@ -278,6 +278,19 @@
         transition: border-color .15s, background .15s;
     }
 
+    .document-categories {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 10px;
+        margin-bottom: 18px;
+    }
+
+    .document-categories .dropzone {
+        min-height: 124px;
+        margin-bottom: 0;
+        padding: 14px 10px;
+    }
+
     .dropzone:hover,
     .dropzone.dragover {
         border-color: #27ae60;
@@ -320,6 +333,7 @@
         .row { flex-direction: column; gap: 0; }
         .tabs { flex-direction: column; }
         .container { padding: 22px 18px 26px; }
+        .document-categories { grid-template-columns: 1fr; }
     }
 
     @media print {
@@ -343,12 +357,31 @@
         <h1>Gerador de Termos</h1>
         <p class="subtitle">AUTO VALE PREVENÇÕES &middot; Proteção Veicular</p>
 
-        <div class="dropzone" id="dropzone" role="button" tabindex="0" aria-label="Preencher automaticamente a partir de documentos">
-            <span class="dropzone-icon">📄</span>
-            <span class="dropzone-title">Preencher automaticamente por documentos</span>
-            <span class="dropzone-sub">Arraste os arquivos aqui (.docx, PDF ou foto) ou clique para escolher</span>
-            <span class="dropzone-sub">Pode enviar vários de uma vez — ex.: CNH + CRLV</span>
-            <input type="file" id="docInput" accept=".docx,.pdf,.png,.jpg,.jpeg,.webp" multiple hidden>
+        <div class="document-categories" aria-label="Anexar documentos por categoria">
+            <div class="dropzone" data-category="endereco" role="button" tabindex="0" aria-label="Anexar comprovante de residência para preencher endereço">
+                <span class="dropzone-icon">🏠</span>
+                <span class="dropzone-title">Comprovante de residência</span>
+                <span class="dropzone-sub">Preenche endereço, bairro e cidade</span>
+                <input type="file" accept=".pdf,.png,.jpg,.jpeg,.webp" multiple hidden>
+            </div>
+            <div class="dropzone" data-category="veiculo" role="button" tabindex="0" aria-label="Anexar CRLV para preencher dados do veículo">
+                <span class="dropzone-icon">🚗</span>
+                <span class="dropzone-title">CRLV</span>
+                <span class="dropzone-sub">Preenche os dados do veículo</span>
+                <input type="file" accept=".pdf,.png,.jpg,.jpeg,.webp" multiple hidden>
+            </div>
+            <div class="dropzone" data-category="pessoa" role="button" tabindex="0" aria-label="Anexar CNH para preencher dados pessoais">
+                <span class="dropzone-icon">🪪</span>
+                <span class="dropzone-title">CNH</span>
+                <span class="dropzone-sub">Preenche nome e CPF</span>
+                <input type="file" accept=".pdf,.png,.jpg,.jpeg,.webp" multiple hidden>
+            </div>
+            <div class="dropzone" data-category="termo" role="button" tabindex="0" aria-label="Anexar termo Word preenchido">
+                <span class="dropzone-icon">📝</span>
+                <span class="dropzone-title">Termo Word</span>
+                <span class="dropzone-sub">Importa termo preenchido</span>
+                <input type="file" accept=".docx" multiple hidden>
+            </div>
         </div>
         <div class="drop-status" id="dropStatus" role="status"></div>
 
@@ -1124,7 +1157,7 @@
         }, Promise.resolve(''));
     }
 
-    function lerPdf(file) {
+    function lerPdf(file, categoria) {
         return obterPdfJs()
             .then(function (pdfjs) {
                 return file.arrayBuffer().then(function (buffer) {
@@ -1146,7 +1179,7 @@
                 });
             })
             .then(function (contexto) {
-                const porTexto = interpretarDocumentoTexto(contexto.linhas.join('\n'), file.name);
+                const porTexto = interpretarDocumentoTexto(contexto.linhas.join('\n'), file.name, categoria);
 
                 if (Object.keys(porTexto.dados).length >= 2) return porTexto;
 
@@ -1156,7 +1189,7 @@
                     if (!texto || texto.replace(/\W/g, '').length < 20) {
                         throw new Error('não consegui ler o conteúdo do PDF.');
                     }
-                    return interpretarDocumentoTexto(texto, file.name);
+                    return interpretarDocumentoTexto(texto, file.name, categoria);
                 }).catch(function (err) {
                     if (Object.keys(porTexto.dados).length) return porTexto;
                     throw err;
@@ -1164,7 +1197,7 @@
             });
     }
 
-    function lerImagem(file) {
+    function lerImagem(file, categoria) {
         return createImageBitmap(file).then(function (bmp) {
             const escala = Math.max(1, Math.min(2.5, 1800 / bmp.width));
             const canvas = document.createElement('canvas');
@@ -1179,7 +1212,7 @@
             if (!texto || texto.replace(/\W/g, '').length < 20) {
                 throw new Error('não consegui ler o texto da imagem.');
             }
-            const resultado = interpretarDocumentoTexto(texto, file.name);
+            const resultado = interpretarDocumentoTexto(texto, file.name, categoria);
             resultado.rotulo = resultado.rotulo + ' (foto)';
             return resultado;
         });
@@ -1200,17 +1233,42 @@
             });
     }
 
-    function lerArquivo(file) {
+    function lerArquivo(file, categoria) {
         const nome = file.name || '';
 
         if (/\.docx$/i.test(nome)) return lerDocx(file);
-        if (/\.pdf$/i.test(nome) || file.type === 'application/pdf') return lerPdf(file);
-        if (/^image\//.test(file.type) || /\.(png|jpe?g|webp)$/i.test(nome)) return lerImagem(file);
+        if (/\.pdf$/i.test(nome) || file.type === 'application/pdf') return lerPdf(file, categoria);
+        if (/^image\//.test(file.type) || /\.(png|jpe?g|webp)$/i.test(nome)) return lerImagem(file, categoria);
 
         return Promise.reject(new Error('formato não suportado (use .docx, PDF, JPG ou PNG).'));
     }
 
-    function processarArquivos(lista) {
+    const CAMPOS_CATEGORIA = {
+        endereco: ['endereco', 'bairro', 'numero', 'cidade'],
+        veiculo: ['veiculo', 'ano', 'placa', 'cor', 'chassi'],
+        pessoa: ['nome', 'cpf'],
+        termo: ['nome', 'cpf', 'endereco', 'bairro', 'numero', 'cidade', 'veiculo', 'ano', 'placa', 'cor', 'chassi', 'data', 'retirada', 'devolucao']
+    };
+
+    const ROTULOS_CATEGORIA = {
+        endereco: 'comprovante de residência',
+        veiculo: 'CRLV',
+        pessoa: 'CNH',
+        termo: 'termo Word'
+    };
+
+    function filtrarDadosCategoria(dados, categoria) {
+        const campos = CAMPOS_CATEGORIA[categoria] || [];
+        const filtrados = {};
+
+        campos.forEach(function (chave) {
+            if (dados[chave]) filtrados[chave] = dados[chave];
+        });
+
+        return filtrados;
+    }
+
+    function processarArquivos(lista, categoria) {
         const arquivos = Array.prototype.slice.call(lista || []);
         if (!arquivos.length) return Promise.resolve();
 
@@ -1221,7 +1279,8 @@
             return cadeia.then(function () {
                 mostrarStatus('Lendo ' + (indice + 1) + ' de ' + arquivos.length + ': ' + file.name + '...', 'ok');
 
-                return lerArquivo(file).then(function (resultado) {
+                return lerArquivo(file, categoria).then(function (resultado) {
+                    resultado.dados = filtrarDadosCategoria(resultado.dados, categoria);
                     resultados.push(resultado);
                 }).catch(function (err) {
                     problemas.push(file.name + ': ' + err.message);
@@ -1241,7 +1300,7 @@
 
             if (!Object.keys(dados).length) {
                 mostrarStatus(
-                    'Li ' + resultados.length + ' arquivo(s), mas não identifiquei os dados.' +
+                    'Li ' + resultados.length + ' arquivo(s) da categoria ' + ROTULOS_CATEGORIA[categoria] + ', mas não identifiquei os dados esperados.' +
                     (problemas.length ? '\n' + problemas.join('\n') : '') +
                     '\nConfira se o arquivo está legível ou preencha manualmente.',
                     'error'
@@ -1254,7 +1313,7 @@
                 return resultado.rotulo + (Object.keys(resultado.dados).length ? '' : ' (sem dados)');
             });
 
-            let mensagem = resultados.length + ' arquivo(s) lido(s): ' + lidos.join(', ') + '.';
+            let mensagem = resultados.length + ' arquivo(s) de ' + ROTULOS_CATEGORIA[categoria] + ' lido(s): ' + lidos.join(', ') + '.';
             mensagem += '\n' + preenchido.campos.length + ' campo(s) preenchido(s) na aba ' +
                 (NOMES_TIPO[preenchido.tipo] || preenchido.tipo) + '. Confira antes de gerar o termo.';
             if (problemas.length) mensagem += '\nAtenção: ' + problemas.join('\n');
@@ -1290,7 +1349,7 @@
 
         if (indiceNome !== -1) {
             for (let i = indiceNome + 1; i <= Math.min(linhas.length - 1, indiceNome + 4); i++) {
-                const achado = linhas[i].match(/^[\s\[|]*([A-ZÀ-Ú][A-ZÀ-Ú .'\-]{5,})[\s\[|]/);
+                const achado = linhas[i].match(/^[\s\[|]*([A-ZÀ-Ú][A-ZÀ-Ú .'\-]{5,})[\s\[|]*$/);
                 if (!achado) continue;
 
                 const nome = achado[1].replace(/\s+/g, ' ').trim();
@@ -1351,11 +1410,48 @@
         return dados;
     }
 
-    function interpretarDocumentoTexto(texto, nomeArquivo) {
+    function interpretarComprovanteEndereco(texto) {
+        const dados = interpretarTermo(texto.split('\n').filter(function (linha) { return linha.trim(); })).dados;
+        let m = texto.match(/(?:ENDERE[ÇC]O|LOGRADOURO)\s*[:\-]?\s*([^\n]+)/i);
+        if (m) {
+            dados.endereco = m[1].replace(/\s+(?:CEP|BAIRRO|CIDADE)\s*:.*$/i, '').trim();
+        } else {
+            m = texto.match(/^\s*((?:RUA|AVENIDA|AV\.|TRAVESSA|ESTRADA|RODOVIA|ALAMEDA|PRA[ÇC]A)\s+[^\n]+)/im);
+            if (m) dados.endereco = m[1].trim();
+        }
+
+        m = texto.match(/(?:BAIRRO|DISTRITO)\s*[:\-]?\s*([^\n]+)/i);
+        if (m) dados.bairro = m[1].replace(/\s+(?:CEP|CIDADE)\s*:.*$/i, '').trim();
+
+        m = texto.match(/(?:N[ÚU]MERO|N[º°.]|NRO)\s*[:\-]?\s*(\d+[A-Z]?)/i);
+        if (m) dados.numero = m[1];
+
+        m = texto.match(/(?:MUNIC[IÍ]PIO|CIDADE)\s*[:\-]?\s*([^\n]+)/i);
+        if (m) {
+            const cidade = m[1].trim().match(/^(.+?)\s*[-–/]\s*([A-Z]{2})$/i);
+            if (cidade) dados.cidade = cidade[1].trim() + ' - ' + cidade[2].toUpperCase();
+        }
+
+        return dados;
+    }
+
+    function interpretarDocumentoTexto(texto, nomeArquivo, categoria) {
         const linhas = texto.split('\n').map(function (l) { return l.trim(); }).filter(function (l) { return l; });
         const up = texto.toUpperCase();
         const nome = String(nomeArquivo || '').toUpperCase();
         const poucoTexto = texto.replace(/\s/g, '').length < 300;
+
+        if (categoria === 'endereco') {
+            return { rotulo: 'Comprovante de residência', tipo: null, dados: interpretarComprovanteEndereco(texto) };
+        }
+
+        if (categoria === 'veiculo') {
+            return { rotulo: 'CRLV', tipo: null, dados: interpretarCrlv(texto) };
+        }
+
+        if (categoria === 'pessoa') {
+            return { rotulo: 'CNH', tipo: null, dados: interpretarCnh(texto) };
+        }
 
         const temCnh = up.indexOf('CARTEIRA NACIONAL DE HABILITA') !== -1 ||
             up.indexOf('PERMISO DE CONDUCCION') !== -1;
@@ -1510,39 +1606,43 @@
         el.addEventListener('change', salvar);
     });
 
-    const dropzone = document.getElementById('dropzone');
-    const docInput = document.getElementById('docInput');
+    document.querySelectorAll('.dropzone[data-category]').forEach(function (dropzone) {
+        const docInput = dropzone.querySelector('input[type="file"]');
+        const categoria = dropzone.dataset.category;
 
-    dropzone.addEventListener('click', function () { docInput.click(); });
-    dropzone.addEventListener('keydown', function (event) {
-        if (event.key === 'Enter' || event.key === ' ') {
-            event.preventDefault();
-            docInput.click();
-        }
-    });
-
-    ['dragenter', 'dragover'].forEach(function (ev) {
-        dropzone.addEventListener(ev, function (event) {
-            event.preventDefault();
-            dropzone.classList.add('dragover');
+        dropzone.addEventListener('click', function (event) {
+            if (event.target !== docInput) docInput.click();
         });
-    });
-
-    ['dragleave', 'drop'].forEach(function (ev) {
-        dropzone.addEventListener(ev, function (event) {
-            event.preventDefault();
-            dropzone.classList.remove('dragover');
+        dropzone.addEventListener('keydown', function (event) {
+            if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault();
+                docInput.click();
+            }
         });
-    });
 
-    dropzone.addEventListener('drop', function (event) {
-        const arquivos = event.dataTransfer.files;
-        if (arquivos && arquivos.length) processarArquivos(arquivos);
-    });
+        ['dragenter', 'dragover'].forEach(function (ev) {
+            dropzone.addEventListener(ev, function (event) {
+                event.preventDefault();
+                dropzone.classList.add('dragover');
+            });
+        });
 
-    docInput.addEventListener('change', function () {
-        if (docInput.files && docInput.files.length) processarArquivos(docInput.files);
-        docInput.value = '';
+        ['dragleave', 'drop'].forEach(function (ev) {
+            dropzone.addEventListener(ev, function (event) {
+                event.preventDefault();
+                dropzone.classList.remove('dragover');
+            });
+        });
+
+        dropzone.addEventListener('drop', function (event) {
+            const arquivos = event.dataTransfer.files;
+            if (arquivos && arquivos.length) processarArquivos(arquivos, categoria);
+        });
+
+        docInput.addEventListener('change', function () {
+            if (docInput.files && docInput.files.length) processarArquivos(docInput.files, categoria);
+            docInput.value = '';
+        });
     });
 
     document.querySelectorAll('form').forEach(function (form) {

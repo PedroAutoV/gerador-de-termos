@@ -18,32 +18,33 @@ Gerador de termos em um único arquivo HTML. Funciona no navegador, sem instala�
 
 ## Preencher automaticamente por documentos
 
-Na parte superior da página, arraste um ou **vários arquivos** (ou clique para escolher). O gerador:
+Na parte superior da página, anexe cada documento na categoria correspondente (ou arraste os arquivos para a área correta). O gerador:
 
 - lê tudo direto no navegador;
-- junta os dados de todos os arquivos enviados (ex.: **CNH + CRLV** do mesmo cliente);
-- identifica o tipo do documento e preenche os campos correspondentes;
+- usa o **comprovante de residência** para endereço, bairro, número e cidade;
+- usa o **CRLV** para os dados do veículo;
+- usa a **CNH** para nome e CPF;
 - destaca em verde os campos preenchidos para você conferir antes de gerar.
 
 ### Formatos aceitos
 
-| Arquivo | O que é lido |
-|---|---|
-| `.docx` (Word) | Termo de Entrega, Renúncia ou Responsabilidade já preenchido |
-| `.pdf` com texto (ex.: CRLV Digital) | placa, Renavam, chassi, marca/modelo, ano, cor, proprietário, CPF e cidade |
-| `.pdf` com imagem (ex.: CNH Digital) | OCR da carteira: nome, CPF e data de nascimento |
-| `.jpg`, `.png`, `.webp` | OCR de foto de documento (CNH, CRLV) |
+| Categoria | Arquivo | O que é lido |
+|---|---|---|
+| Comprovante de residência | PDF ou imagem | endereço, bairro, número e cidade, quando identificados |
+| CRLV | PDF ou imagem | placa, chassi, marca/modelo, ano e cor |
+| CNH | PDF ou imagem | nome e CPF |
+| Documento Word | `.docx` | Termo de Entrega, Renúncia ou Responsabilidade já preenchido |
 
 ### Exemplo de uso
 
-1. Arraste a **CNH** e o **CRLV** juntos, de uma só vez.
-2. O gerador lê a CNH (foto → OCR) e o CRLV (texto), junta os dados e preenche nome, CPF, cidade, veículo, ano, placa, cor e chassi.
-3. Complete o que faltar (endereço, bairro, número) e gere o termo.
+1. Anexe a **CNH** na categoria CNH e o **CRLV** na categoria CRLV.
+2. Anexe o **comprovante de residência** na categoria correspondente para preencher os dados de endereço.
+3. Confira os campos preenchidos, complete o que faltar e gere o termo.
 
 Observações:
 
 - O OCR (leitura de imagem/PDF escaneado) é feito no próprio navegador e pode levar de 10 a 40 segundos na primeira vez, pois baixa o leitor do CDN.
-- Endereço, bairro e número não constam na CNH nem no CRLV — preencha manualmente.
+- Os dados extraídos ficam limitados aos campos da categoria selecionada. Confira os resultados e complete manualmente o que não for identificado.
 - Se um dado não for encontrado, o campo fica vazio.
 
 ## Recursos
