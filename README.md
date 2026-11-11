@@ -16,6 +16,17 @@ Gerador de termos em um único arquivo HTML. Funciona offline, sem instalação 
 4. Clique em **Gerar Termo (Imprimir/Salvar PDF)**.
 5. Na janela de impressão, escolha **Salvar como PDF**.
 
+## Preencher automaticamente por um documento
+
+Na parte superior da página, arraste um arquivo **.docx** do Word (ou clique para escolher). O gerador:
+
+- lê o texto do documento direto no navegador;
+- identifica se é Termo de Entrega, Renúncia ou Responsabilidade;
+- abre a aba correta e preenche nome, CPF, endereço, veículo, placa, cor, chassi e datas;
+- destaca em verde os campos preenchidos para você conferir antes de gerar.
+
+Formatos suportados: apenas `.docx` (Word). PDF e imagem não são lidos.
+
 ## Recursos
 
 - Dados do veículo compartilhados entre os termos (marca/modelo, ano, placa e cor).
